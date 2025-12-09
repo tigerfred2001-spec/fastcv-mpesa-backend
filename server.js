@@ -165,6 +165,11 @@ app.get('/check', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'alive', message: 'Backend is running' });
+});
+
 app.listen(PORT, () =>
   console.log(`✅ Backend running on http://localhost:${PORT}`)
 );
