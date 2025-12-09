@@ -14,7 +14,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.BASE_URL || 'https://fastcv-mpesa-backend.onrender.com';
 
 // Simple in-memory store (OK for now)
 const payments = {};
