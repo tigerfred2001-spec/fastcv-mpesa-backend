@@ -27,10 +27,11 @@ app.post('/pay', async (req, res) => {
   try {
     const { phone, amount, email } = req.body;
     if (!phone || !amount) {
+      console.log('❌ Missing phone or amount in request body:', req.body);
       return res.status(400).json({ error: 'phone and amount required' });
     }
 
-    // ✅ Format phone to +2547XXXXXXX
+    // Format phone to +2547XXXXXXX
     let formattedPhone = phone.trim();
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+254' + formattedPhone.slice(1);
@@ -40,7 +41,6 @@ app.post('/pay', async (req, res) => {
         : '+254' + formattedPhone;
     }
 
-    // ✅ Paystack expects smallest unit (KES * 100)
     const amountInSmallest = Math.round(Number(amount) * 100);
 
     const payload = {
@@ -52,6 +52,9 @@ app.post('/pay', async (req, res) => {
         provider: 'mpesa'
       }
     };
+
+    // 🔹 Log payload being sent to Paystack
+    console.log('💡 Sending to Paystack:', JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
       'https://api.paystack.co/charge',
@@ -72,6 +75,9 @@ app.post('/pay', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
+    // 🔹 Log response from Paystack
+    console.log('✅ Paystack response:', JSON.stringify(data, null, 2));
+
     return res.json({
       ok: true,
       message: data.message,
@@ -79,7 +85,8 @@ app.post('/pay', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Pay error:', err.response?.data || err.message);
+    // 🔹 Log full error from Paystack
+    console.error('❌ Pay error full detail:', err.response?.data || err.message);
     return res.status(500).json({
       error: 'pay_failed',
       details: err.response?.data || err.message
