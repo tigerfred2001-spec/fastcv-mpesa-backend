@@ -25,13 +25,14 @@ const payments = {};
  */
 app.post('/pay', async (req, res) => {
   try {
-    const { phone, amount, email } = req.body;
+    const { phone, amount } = req.body;
+
     if (!phone || !amount) {
-      console.log('❌ Missing phone or amount in request body:', req.body);
+      console.log('❌ Missing phone or amount:', req.body);
       return res.status(400).json({ error: 'phone and amount required' });
     }
 
-    // Format phone to +2547XXXXXXX
+    // ✅ Format phone to international +254 format
     let formattedPhone = phone.trim();
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+254' + formattedPhone.slice(1);
@@ -41,19 +42,22 @@ app.post('/pay', async (req, res) => {
         : '+254' + formattedPhone;
     }
 
+    // ✅ Convert amount to smallest unit (KES * 100)
     const amountInSmallest = Math.round(Number(amount) * 100);
+
+    // ✅ Auto-generate UNIQUE email (Paystack requirement)
+    const autoEmail = `${formattedPhone.replace('+', '')}@fastcv.app`;
 
     const payload = {
       amount: amountInSmallest,
       currency: 'KES',
-      email: email || 'customer@fastcv.app',
+      email: autoEmail, // REQUIRED by Paystack
       mobile_money: {
         phone: formattedPhone,
         provider: 'mpesa'
       }
     };
 
-    // 🔹 Log payload being sent to Paystack
     console.log('💡 Sending to Paystack:', JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
@@ -72,10 +76,11 @@ app.post('/pay', async (req, res) => {
 
     payments[reference] = {
       status: data.data.status || 'pending',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      phone: formattedPhone,
+      amount
     };
 
-    // 🔹 Log response from Paystack
     console.log('✅ Paystack response:', JSON.stringify(data, null, 2));
 
     return res.json({
@@ -85,7 +90,6 @@ app.post('/pay', async (req, res) => {
     });
 
   } catch (err) {
-    // 🔹 Log full error from Paystack
     console.error('❌ Pay error full detail:', err.response?.data || err.message);
     return res.status(500).json({
       error: 'pay_failed',
@@ -99,6 +103,7 @@ app.post('/pay', async (req, res) => {
  */
 app.get('/verify', async (req, res) => {
   const { reference } = req.query;
+
   if (!reference) {
     return res.status(400).json({ error: 'reference required' });
   }
@@ -107,9 +112,7 @@ app.get('/verify', async (req, res) => {
     const r = await axios.get(
       `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
       {
-        headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET}`
-        }
+        headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` }
       }
     );
 
@@ -141,7 +144,7 @@ app.post('/webhook', (req, res) => {
   }
 
   const event = req.body;
-  if (event.data?.reference) {
+  if (event?.data?.reference) {
     payments[event.data.reference] =
       payments[event.data.reference] || {};
     payments[event.data.reference].status =
@@ -156,20 +159,22 @@ app.post('/webhook', (req, res) => {
  */
 app.get('/check', (req, res) => {
   const { reference } = req.query;
+
   if (!reference) {
     return res.status(400).json({ error: 'reference required' });
   }
+
   const record = payments[reference];
   if (!record) return res.json({ found: false });
   return res.json({ found: true, record });
 });
 
-const PORT = process.env.PORT || 3000;
-// Health check endpoint
+// ✅ Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'alive', message: 'Backend is running' });
 });
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
-  console.log(`✅ Backend running on http://localhost:${PORT}`)
+  console.log(`✅ Backend running on port ${PORT}`)
 );
